@@ -29,7 +29,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     dict_resp['Response Status'] = parse_url(words[1])
                     dict_resp['Request Source'] = addr
                     for i in range(2, len(words) - 2):
-                        dict_resp[f'{words[i].split(": ")[0]}'] = words[i].split(": ")[1]  # .replace(":", "")
+                        dict_resp[f'{words[i].split(": ")[0]}'] = words[i].split(": ")[1]
                     return dict_resp
                 elif data.split(' ')[0] == 'curl':
                     words = data.split()
