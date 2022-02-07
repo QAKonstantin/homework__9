@@ -1,9 +1,6 @@
 import socket
 import random
-import logging
 from http import HTTPStatus
-
-logging.basicConfig(level=logging.DEBUG)
 
 HOST = "127.0.0.1"
 PORT = random.randint(10000, 20000)
@@ -20,17 +17,32 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         while True:
 
             def parse_request_line(data, dict_resp):
-                words = data.split()
-                i = words[0]
-                while i not in ['GET', 'POST', 'DELETE', 'PUT', 'HEAD']:
-                    words.remove(i)
+                if data.split(' ')[0] != 'curl':
+                    words = data.split('\r\n')
+                    i = words[0].split(' ')
+                    for k in range(len(i)):
+                        if i[k] not in ['GET', 'POST', 'DELETE', 'PUT', 'HEAD']:
+                            words.remove(i[k])
+                        else:
+                            break
+                    dict_resp['Request Method'] = i[k]
+                    dict_resp['Response Status'] = parse_url(words[1])
+                    dict_resp['Request Source'] = addr
+                    for i in range(2, len(words) - 2):
+                        dict_resp[f'{words[i].split(": ")[0]}'] = words[i].split(": ")[1]  # .replace(":", "")
+                    return dict_resp
+                elif data.split(' ')[0] == 'curl':
+                    words = data.split()
                     i = words[0]
-                dict_resp['Request Method'] = words[0]
-                dict_resp['Response Status'] = parse_url(words[1])
-                dict_resp['Request Source'] = addr
-                for i in range(0, len(words) - 3, 2):
-                    dict_resp[f'{words[i + 3].replace(":", "")}'] = words[i + 4]
-                return dict_resp
+                    while i not in ['GET', 'POST', 'DELETE', 'PUT', 'HEAD']:
+                        words.remove(i)
+                        i = words[0]
+                    dict_resp['Request Method'] = words[0]
+                    dict_resp['Response Status'] = parse_url(words[1])
+                    dict_resp['Request Source'] = addr
+                    for i in range(0, len(words) - 3, 2):
+                        dict_resp[f'{words[i + 3].replace(":", "")}'] = words[i + 4]
+                    return dict_resp
 
 
             def parse_url(url):
@@ -47,10 +59,11 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             if not data or data == b"close":
                 print("Got termination signal", data, "and closed connection")
                 conn.close()
+                break
             data = data.decode("utf-8")
             resp = parse_request_line(data, dict_resp)
             str = ''
             for key, value in resp.items():
                 str += key + f':{value}\n'
             conn.send(str.encode("utf-8"))
-            logging.info(f"Sent '{data}' to {addr}")
+            print(f'sent response:\n{str}')

@@ -2,7 +2,7 @@ import json
 import socket
 
 HOST = '127.0.0.1'
-PORT = 18125
+PORT = 16835
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     print(f"Connecting to {HOST}:{PORT}")
     s.connect((HOST, PORT))
