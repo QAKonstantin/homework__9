@@ -2,16 +2,15 @@ import json
 import socket
 
 HOST = '127.0.0.1'
-PORT = 16835
+PORT = 58711
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     print(f"Connecting to {HOST}:{PORT}")
     s.connect((HOST, PORT))
 
     while True:
-        data_to_send = input("Lets send curl request: ")
+        data_to_send = input("Lets send curl request: \n")
 
-        if data_to_send == 'close':
-            s.send(bytes(data_to_send.strip(), "utf-8"))
+        if data_to_send == '':
             print("Close connection")
             break
 

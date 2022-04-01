@@ -1,69 +1,71 @@
 import socket
-import random
 from http import HTTPStatus
+from helper import get_open_port
 
-HOST = "127.0.0.1"
-PORT = random.randint(10000, 20000)
+address = ('127.0.0.1', get_open_port())
 resp = []
 dict_resp = {'Request Method': '', 'Request Source': '', 'Response Status': ''}
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    print(f"Binding server on {HOST}:{PORT}")
-    s.bind((HOST, PORT))
-    s.listen()
-    conn, addr = s.accept()
+    print(f"Binding server on {address}")
+    s.bind(address)
+    s.listen(1)
 
-    with conn:
+    while True:
+        conn, addr = s.accept()
+
+
+        def parse_headers(data, status_line, dict_resp):
+            try:
+                headers = data[1:]
+                dict_resp['Request Method'] = data[0].split(' ')[0]
+                dict_resp['Response Status'] = status_line.split(' ')[1] + ' ' + status_line.split(' ')[2]
+                dict_resp['Request Source'] = addr
+                for i in range(len(headers) - 2):
+                    dict_resp[f'{headers[i].split(": ")[0]}'] = headers[i].split(": ")[1]
+                return dict_resp
+            except:
+                print("Incorrect url")
+                return None
+
+
+        def parse_resp_status(status_line):
+            try:
+                status_code = int(status_line[1].split('=')[1])
+                return f'{HTTPStatus(status_code).value} {HTTPStatus(status_code).name}'
+            except (ValueError, IndexError):
+                return f'{HTTPStatus.OK.value} {HTTPStatus.OK.name}'
+
+
+        def parse_status_line(status_line):
+            if len(status_line) == 3:
+                temp = status_line[2] + ' ' + parse_resp_status(status_line)
+                return temp
+            else:
+                return None
+
+
         while True:
-
-            def parse_request_line(data, dict_resp):
-                if data.split(' ')[0] != 'curl':
-                    words = data.split('\r\n')
-                    i = words[0].split(' ')
-                    for k in range(len(i)):
-                        if i[k] not in ['GET', 'POST', 'DELETE', 'PUT', 'HEAD']:
-                            words.remove(i[k])
-                        else:
-                            break
-                    dict_resp['Request Method'] = i[k]
-                    dict_resp['Response Status'] = parse_url(words[1])
-                    dict_resp['Request Source'] = addr
-                    for i in range(2, len(words) - 2):
-                        dict_resp[f'{words[i].split(": ")[0]}'] = words[i].split(": ")[1]
-                    return dict_resp
-                elif data.split(' ')[0] == 'curl':
-                    words = data.split()
-                    i = words[0]
-                    while i not in ['GET', 'POST', 'DELETE', 'PUT', 'HEAD']:
-                        words.remove(i)
-                        i = words[0]
-                    dict_resp['Request Method'] = words[0]
-                    dict_resp['Response Status'] = parse_url(words[1])
-                    dict_resp['Request Source'] = addr
-                    for i in range(0, len(words) - 3, 2):
-                        dict_resp[f'{words[i + 3].replace(":", "")}'] = words[i + 4]
-                    return dict_resp
-
-
-            def parse_url(url):
-                if (len(url.split('=')) > 1 and url.split('=')[1] == '404'):
-                    url = HTTPStatus.NOT_FOUND.value
-                    return f'{url} ' + HTTPStatus.NOT_FOUND.phrase
-                else:
-                    url = HTTPStatus.OK.value
-                    return f'{url} ' + HTTPStatus.OK.phrase
-
-
             data = conn.recv(1024)
-            print("Received", data, "from", addr)
-            if not data or data == b"close":
-                print("Got termination signal", data, "and closed connection")
-                conn.close()
+            text = data.decode("utf-8")
+            if text:
+                print("Received", text, "\nfrom", addr)
+                status_line = parse_status_line(text.split('\r\n')[0].split(' '))
+                if status_line is not None:
+                    headers = parse_headers(text.split('\r\n'), status_line, dict_resp)
+                    body = text.split('\r\n\r\n')[1]
+                    status_line += '\n'
+                    for key, value in headers.items():
+                        status_line += key + f':{value}\n'
+                    if body != '':
+                        status_line += '\n' + body
+                    conn.send(status_line.encode("utf-8"))
+                    print(f'Response:\n{status_line}')
+                    break
+                else:
+                    conn.send(f'Incorrect request: {text}'.encode("utf-8"))
+                    print(f'Incorrect request:\n{text}')
+            else:
+                print(f'no data from {addr}')
                 break
-            data = data.decode("utf-8")
-            resp = parse_request_line(data, dict_resp)
-            str = ''
-            for key, value in resp.items():
-                str += key + f':{value}\n'
-            conn.send(str.encode("utf-8"))
-            print(f'sent response:\n{str}')
+        conn.close()
