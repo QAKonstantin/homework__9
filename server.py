@@ -3,7 +3,6 @@ from http import HTTPStatus
 from helper import get_open_port
 
 address = ('127.0.0.1', get_open_port())
-resp = []
 dict_resp = {'Request Method': '', 'Request Source': '', 'Response Status': ''}
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
