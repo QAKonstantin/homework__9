@@ -48,18 +48,24 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             data = conn.recv(1024)
             text = data.decode("utf-8")
             if text:
-                print("Received", text, "\nfrom", addr)
+                print("Received", text, "from", addr)
                 status_line = parse_status_line(text.split('\r\n')[0].split(' '))
                 if status_line is not None:
-                    headers = parse_headers(text.split('\r\n'), status_line, dict_resp)
                     body = text.split('\r\n\r\n')[1]
+                    headers = parse_headers(text.split('\r\n'), status_line, dict_resp)
+                    temp = ''
                     status_line += '\n'
                     for key, value in headers.items():
-                        status_line += key + f':{value}\n'
+                        if key != 'Content-Length':
+                            temp += key + f':{value}\n'
+
                     if body != '':
-                        status_line += '\n' + body
-                    conn.send(status_line.encode("utf-8"))
-                    print(f'Response:\n{status_line}')
+                        temp += '\n' + body
+                    status_line += 'Content-Type: text/plain\n'
+                    status_line += 'Content-Length: ' + str(len(temp)) + '\n'
+                    request = status_line + '\n' + temp
+                    conn.send(request.encode("utf-8"))
+                    print(f'Response:\n{request}')
                     break
                 else:
                     conn.send(f'Incorrect request: {text}'.encode("utf-8"))
